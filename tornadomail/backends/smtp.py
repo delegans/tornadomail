@@ -14,16 +14,14 @@ class EmailBackend(BaseEmailBackend):
     A wrapper that manages the SMTP network connection.
     """
     def __init__(self, host=None, port=None, username=None, password=None,
-                 use_tls=None, fail_silently=False, **kwargs):
+                 use_tls=None, fail_silently=False, use_ssl=None, **kwargs):
         super(EmailBackend, self).__init__(fail_silently=fail_silently)
         self.host = host or '127.0.0.1'
         self.port = port or 25
         self.username = username or None
         self.password = password or None
-        if use_tls is None:
-            self.use_tls = None
-        else:
-            self.use_tls = use_tls
+        self.use_tls = use_tls
+        self.use_ssl = use_ssl
         self.connection = None
         self.template_loader = kwargs.get('template_loader', None)
 
@@ -39,15 +37,23 @@ class EmailBackend(BaseEmailBackend):
         try:
             # If local_hostname is not specified, socket.getfqdn() gets used.
             # For performance, we use the cached FQDN for local_hostname.
-            self.connection = smtplib.SMTP(self.host, self.port,
-                                           local_hostname=DNS_NAME.get_fqdn())
+            if self.use_ssl:
+                self.connection = smtplib.SMTP_SSL(self.host, self.port,
+                                                   local_hostname=DNS_NAME.get_fqdn())
+            else:
+                self.connection = smtplib.SMTP(self.host, self.port,
+                                               local_hostname=DNS_NAME.get_fqdn())
+
             yield gen.Task(self.connection.connect, self.host, self.port)
+
             if self.use_tls:
                 yield gen.Task(self.connection.ehlo)
                 yield gen.Task(self.connection.starttls)
                 yield gen.Task(self.connection.ehlo)
+
             if self.username and self.password:
                 yield gen.Task(self.connection.login, self.username, self.password)
+
             callback(True)
         except:
             if not self.fail_silently:

@@ -796,33 +796,40 @@ class SMTP:
         if callback:
             callback(res)
 
-# if _have_ssl:
-# 
-#     class SMTP_SSL(SMTP):
-#         """ This is a subclass derived from SMTP that connects over an SSL encrypted
-#         socket (to use this class you need a socket module that was compiled with SSL
-#         support). If host is not specified, '' (the local host) is used. If port is
-#         omitted, the standard SMTP-over-SSL port (465) is used. keyfile and certfile
-#         are also optional - they can contain a PEM formatted private key and
-#         certificate chain file for the SSL connection.
-#         """
-#         def __init__(self, host='', port=0, local_hostname=None,
-#                      keyfile=None, certfile=None,
-#                      timeout=socket._GLOBAL_DEFAULT_TIMEOUT):
-#             self.keyfile = keyfile
-#             self.certfile = certfile
-#             SMTP.__init__(self, host, port, local_hostname, timeout)
-#             self.default_port = SMTP_SSL_PORT
-# 
-#         def _get_socket(self, host, port, timeout):
-#             if self.debuglevel > 0: print>>stderr, 'connect:', (host, port)
-#             new_socket = socket.create_connection((host, port), timeout)
-#             new_socket = ssl.wrap_socket(new_socket, self.keyfile, self.certfile)
-#             self.file = SSLFakeFile(new_socket)
-#             return new_socket
-# 
-#     __all__.append("SMTP_SSL")
-# 
+if _have_ssl:
+
+    class SMTP_SSL(SMTP):
+        """ This is a subclass derived from SMTP that connects over an SSL encrypted
+        socket (to use this class you need a socket module that was compiled with SSL
+        support). If host is not specified, '' (the local host) is used. If port is
+        omitted, the standard SMTP-over-SSL port (465) is used. keyfile and certfile
+        are also optional - they can contain a PEM formatted private key and
+        certificate chain file for the SSL connection.
+        """
+        def __init__(self, host='', port=0, local_hostname=None,
+                     keyfile=None, certfile=None,
+                     timeout=socket._GLOBAL_DEFAULT_TIMEOUT):
+            self.keyfile = keyfile
+            self.certfile = certfile
+            SMTP.__init__(self, host, port, local_hostname, timeout)
+            self.default_port = SMTP_SSL_PORT
+
+        def _get_socket(self, port, host, timeout, callback):
+            if hasattr(self, '__get_socket'):
+                callback(self.__get_socket)
+                return
+
+            if self.debuglevel > 0: print>>stderr, 'connect:', (host, port)
+
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0)
+            stream = iostream.SSLIOStream(s)
+            callback = partial(callback, socket=stream)
+            stream.connect((host, port), callback=callback)
+            self.__get_socket = stream
+
+
+    __all__.append("SMTP_SSL")
+
 # #
 # # LMTP extension
 # #
