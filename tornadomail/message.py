@@ -175,9 +175,11 @@ class EmailMessage(object):
     content_subtype = 'plain'
     mixed_subtype = 'mixed'
     encoding = None     # None => use settings default
+    send_callback = None
 
     def __init__(self, subject='', body='', from_email=None, to=None, bcc=None,
-                 connection=None, attachments=None, headers=None, cc=None, reply_to=None):
+                 connection=None, attachments=None, headers=None, cc=None, reply_to=None, 
+                 send_callback=None):
         """
         Initialize a single email message (which can be sent to multiple
         recipients).
@@ -208,6 +210,7 @@ class EmailMessage(object):
         self.attachments = attachments or []
         self.extra_headers = headers or {}
         self.connection = connection
+        self.send_callback = send_callback
 
     def get_connection(self, fail_silently=False):
         from . import get_connection
@@ -251,6 +254,7 @@ class EmailMessage(object):
     @gen.engine
     def send(self, fail_silently=False, callback=None):
         """Sends the email message."""
+        callback = callback if callback is not None else self.send_callback
         if not self.recipients():
             # Don't bother creating the network connection if there's nobody to
             # send to.
@@ -340,7 +344,7 @@ class EmailMultiAlternatives(EmailMessage):
 
     def __init__(self, subject='', body='', from_email=None, to=None, bcc=None,
             connection=None, attachments=None, headers=None, alternatives=None,
-            cc=None, reply_to=None):
+            cc=None, reply_to=None, send_callback=None):
         """
         Initialize a single email message (which can be sent to multiple
         recipients).
@@ -349,7 +353,7 @@ class EmailMultiAlternatives(EmailMessage):
         bytestrings). The SafeMIMEText class will handle any necessary encoding
         conversions.
         """
-        super(EmailMultiAlternatives, self).__init__(subject, body, from_email, to, bcc, connection, attachments, headers, cc, reply_to)
+        super(EmailMultiAlternatives, self).__init__(subject, body, from_email, to, bcc, connection, attachments, headers, cc, reply_to, send_callback)
         self.alternatives = alternatives or []
 
     def attach_alternative(self, content, mimetype):
